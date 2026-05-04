@@ -32,11 +32,16 @@ do
   -- Don't show the mode, since it's already in the status line
   vim.o.showmode = false
 
-  -- Sync clipboard between OS and Neovim.
-  --  Schedule the setting after `UiEnter` because it can increase startup-time.
-  --  Remove this option if you want your OS clipboard to remain independent.
-  --  See `:help 'clipboard'`
-  vim.schedule(function() vim.o.clipboard = 'unnamedplus' end)
+  -- Clipboard: y yanks to system clipboard, d/c/x stay in Neovim registers.
+  -- p pastes from system clipboard. Use ""p or "1p to paste deleted text,
+  -- or <leader>v as a shortcut.
+  --  See `:help 'clipboard'` and `:help registers`
+  vim.opt.clipboard = ''
+  vim.keymap.set({ 'n', 'x' }, 'y', '"+y', { desc = 'Yank to system clipboard' })
+  vim.keymap.set('n', 'Y', '"+Y', { desc = 'Yank line to system clipboard' })
+  vim.keymap.set({ 'n', 'x' }, 'p', '"+p', { desc = 'Paste from system clipboard' })
+  vim.keymap.set({ 'n', 'x' }, 'P', '"+P', { desc = 'Paste before from system clipboard' })
+  vim.keymap.set({ 'n', 'x' }, '<leader>v', '""p', { desc = 'Paste from Neovim register (last d/c/x)' })
 
   -- Use fish as the shell for :!, :terminal, and vim.fn.system()
   -- -i flag makes it interactive so aliases from config.fish would available, but it also captures focus
