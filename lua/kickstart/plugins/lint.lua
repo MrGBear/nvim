@@ -8,6 +8,11 @@ lint.linters_by_ft = {
   nix = { 'statix', 'deadnix' },
 }
 
+lint.linters.markdownlint.args = {
+   '--stdin',
+   '--disable', 'MD013', 'MD025', 'MD026', 'MD041', '--',
+}
+
 -- To allow other plugins to add linters to require('lint').linters_by_ft,
 -- instead set linters_by_ft like this:
 -- lint.linters_by_ft = lint.linters_by_ft or {}
