@@ -573,6 +573,16 @@ end
 
         texlab = {},
 
+        jsonls = {},
+
+        yamlls = {},
+
+        lemminx = {},
+
+        html = {},
+
+        cssls = {},
+
         -- Special Lua Config, as recommended by neovim help docs
         lua_ls = {
           on_init = function(client)
