@@ -9,8 +9,13 @@ lint.linters_by_ft = {
 }
 
 lint.linters.markdownlint.args = {
-   '--stdin',
-   '--disable', 'MD013', 'MD025', 'MD026', 'MD041', '--',
+  '--stdin',
+  '--disable',
+  'MD013',
+  'MD025',
+  'MD026',
+  'MD041',
+  '--',
 }
 
 -- To allow other plugins to add linters to require('lint').linters_by_ft,
