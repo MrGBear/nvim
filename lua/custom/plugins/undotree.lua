@@ -1,10 +1,5 @@
 -- Undotree - visualize undo history
 -- https://github.com/jiaoshijie/undotree
 
----@module 'lazy'
----@type LazySpec
-return {
-  'jiaoshijie/undotree',
-  cmd = 'UndotreeToggle',
-  opts = {},
-}
+vim.pack.add { 'https://github.com/jiaoshijie/undotree' }
+require('undotree').setup({})
