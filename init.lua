@@ -522,6 +522,7 @@ end
     -- LSP keymaps, server configuration
     -- ============================================================
     do
+      vim.pack.add { gh 'neovim/nvim-lspconfig' }
       vim.pack.add { gh 'j-hui/fidget.nvim' }
       require('fidget').setup {}
 
