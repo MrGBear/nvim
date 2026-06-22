@@ -643,26 +643,38 @@ do
       local enabled_filetypes = {
         -- lua = true,
         -- python = true,
+        java = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
-        return { timeout_ms = 500 }
+        return { timeout_ms = 2000 }
       else
         return nil
       end
     end,
     default_format_opts = {
-      lsp_format = 'fallback', -- Use external formatters if configured below, otherwise use LSP formatting. Set to `false` to disable LSP formatting entirely.
+      lsp_format = 'fallback',
     },
     -- You can also specify external formatters in here.
     formatters_by_ft = {
       lua = { 'stylua' },
       nix = { 'nixfmt' },
+      java = { 'google_java_format' },
       -- rust = { 'rustfmt' },
       -- Conform can also run multiple formatters sequentially
       -- python = { "isort", "black" },
       --
       -- You can use 'stop_after_first' to run the first available formatter from the list
       -- javascript = { "prettierd", "prettier", stop_after_first = true },
+    },
+    formatters = {
+      google_java_format = {
+        -- Mirror tmf652-service pom.xml spotless <googleJavaFormat>.
+        --   --skip-javadoc-formatting      -> matches <formatJavadoc>false</formatJavadoc>
+        --   --skip-reflowing-long-strings  -> spotless does NOT reflow long string
+        --     literals; without this GJF wraps them and spotless:check fails.
+        -- prepend_args go before conform's default '-' (stdin) arg.
+        prepend_args = { '--skip-javadoc-formatting', '--skip-reflowing-long-strings' },
+      },
     },
   }
 
