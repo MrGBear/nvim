@@ -644,6 +644,7 @@ do
         -- lua = true,
         -- python = true,
         java = true,
+        nix = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
         return { timeout_ms = 2000 }
