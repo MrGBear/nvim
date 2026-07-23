@@ -8,17 +8,13 @@ do
 
   -- Set <space> as the leader key
   -- See `:help mapleader`
-  --  NOTE: Must happen before plugins are loaded (otherwise wrong leader will be used)
+  -- Must happen before plugins are loaded (otherwise wrong leader will be used)
   vim.g.mapleader = ' '
   vim.g.maplocalleader = ' '
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
 vim.g.have_nerd_font = true
 
-  -- [[ Setting options ]]
-  --  See `:help vim.o`
-  -- NOTE: You can change these options as you wish!
-  --  For more options, you can see `:help option-list`
 
   -- Make line numbers default
   vim.o.number = true
@@ -160,12 +156,6 @@ vim.keymap.set('n', '<leader>td', function() vim.diagnostic.enable(not vim.diagn
   vim.keymap.set('n', '<C-l>', '<C-w><C-l>', { desc = 'Move focus to the right window' })
   vim.keymap.set('n', '<C-j>', '<C-w><C-j>', { desc = 'Move focus to the lower window' })
   vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper window' })
-
-  -- NOTE: Some terminals have colliding keymaps or are not able to send distinct keycodes
-  -- vim.keymap.set("n", "<C-S-h>", "<C-w>H", { desc = "Move window to the left" })
-  -- vim.keymap.set("n", "<C-S-l>", "<C-w>L", { desc = "Move window to the right" })
-  -- vim.keymap.set("n", "<C-S-j>", "<C-w>J", { desc = "Move window to the lower" })
-  -- vim.keymap.set("n", "<C-S-k>", "<C-w>K", { desc = "Move window to the upper" })
 
   -- [[ Basic Autocommands ]]
   --  See `:help lua-guide-autocommands`
@@ -413,7 +403,6 @@ do
   }
   if vim.fn.executable 'make' == 1 then table.insert(telescope_plugins, gh 'nvim-telescope/telescope-fzf-native.nvim') end
 
-  -- NOTE: You can install multiple plugins at once
   vim.pack.add(telescope_plugins)
 
   -- See `:help telescope` and `:help telescope.setup()`
@@ -441,6 +430,8 @@ do
   vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
   vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
   vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
+  vim.keymap.set('n', '<leader>st', '<cmd>TodoTelescope keywords=TODO<cr>', { desc = '[S]earch [T]odo' })
+  vim.keymap.set('n', '<leader>sT', '<cmd>TodoTelescope<cr>', { desc = '[S]earch [T]odo Variants' })
   vim.keymap.set(
     'n',
     '<leader>sF',
@@ -569,12 +560,8 @@ end
 
       local servers = {
         jdtls = {},
-        nixd = {
-          settings = {
-            nixpkgs = { expr = 'import <nixpkgs> { }' },
-            formatting = { command = { 'nixfmt' } },
-          },
-        },
+
+        nixd = {},
 
         basedpyright = {},
 
@@ -689,7 +676,6 @@ end
 do
   -- [[ Snippet Engine ]]
 
-  -- NOTE: You can also specify plugin using a version range for its git tag.
   --  See `:help vim.version.range()` for more info
   vim.pack.add { { src = gh 'L3MON4D3/LuaSnip', version = vim.version.range '2.*' } }
   require('luasnip').setup {}
@@ -776,8 +762,6 @@ do
   --  Used to highlight, edit, and navigate code
   --
   --  See `:help nvim-treesitter-intro`
-
-  -- NOTE: You can also specify a branch or a specific commit
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
@@ -834,24 +818,12 @@ end
 -- kickstart.plugins.* examples
 -- ============================================================
 do
-  -- The following comments only work if you have downloaded the kickstart repo, not just copy pasted the
-  -- init.lua. If you want these files, they are in the repository, so you can just download them and
-  -- place them in the correct locations.
-
-  -- NOTE: Next step on your Neovim journey: Add/Configure additional plugins for Kickstart
-  --
-  --  Here are some example plugins that I've included in the Kickstart repository.
-  --  Uncomment any of the lines below to enable them (you will need to restart nvim).
-  --
   -- require 'kickstart.plugins.debug'
   require 'kickstart.plugins.lint'
   -- require 'kickstart.plugins.autopairs'
   -- require 'kickstart.plugins.neo-tree'
   require 'kickstart.plugins.gitsigns'
 
-  -- NOTE: You can add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
-  --
-  --  Uncomment the following line and add your plugins to `lua/custom/plugins/*.lua` to get going.
   require 'custom.plugins'
 end
 
