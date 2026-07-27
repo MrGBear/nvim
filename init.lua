@@ -38,6 +38,12 @@ vim.g.have_nerd_font = true
   vim.keymap.set({ 'n', 'x' }, 'p', '"+p', { desc = 'Paste from system clipboard' })
   vim.keymap.set({ 'n', 'x' }, 'P', '"+P', { desc = 'Paste before from system clipboard' })
   vim.keymap.set({ 'n', 'x' }, '<leader>v', '""p', { desc = 'Paste from Neovim register (last d/c/x)' })
+  vim.keymap.set('n', '<leader>yp', function()
+    vim.fn.setreg('+', vim.fn.expand '%:.')
+  end, { desc = '[Y]ank relative file [P]ath' })
+  vim.keymap.set('n', '<leader>yP', function()
+    vim.fn.setreg('+', vim.fn.expand '%:~')
+  end, { desc = '[Y]ank absolute file [P]ath' })
 
   -- Use fish as the shell for :!, :terminal, and vim.fn.system()
   -- -i flag makes it interactive so aliases from config.fish would available, but it also captures focus
