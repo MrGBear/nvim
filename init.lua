@@ -831,6 +831,13 @@ do
   require 'kickstart.plugins.gitsigns'
 
   require 'custom.plugins'
+  -- TODO: More Plugin
+  -- hardtime or precognition
+  -- nvim-dap
+  -- neotest
+  -- grug-far.
+  -- fugitive
+  -- nvim-jdtls
 end
 
 -- The line beneath this is called `modeline`. See `:help modeline`
