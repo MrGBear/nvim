@@ -12,9 +12,8 @@ do
   vim.g.mapleader = ' '
   vim.g.maplocalleader = ' '
 
--- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = true
-
+  -- Set to true if you have a Nerd Font installed and selected in the terminal
+  vim.g.have_nerd_font = true
 
   -- Make line numbers default
   vim.o.number = true
@@ -38,12 +37,40 @@ vim.g.have_nerd_font = true
   vim.keymap.set({ 'n', 'x' }, 'p', '"+p', { desc = 'Paste from system clipboard' })
   vim.keymap.set({ 'n', 'x' }, 'P', '"+P', { desc = 'Paste before from system clipboard' })
   vim.keymap.set({ 'n', 'x' }, '<leader>v', '""p', { desc = 'Paste from Neovim register (last d/c/x)' })
-  vim.keymap.set('n', '<leader>yp', function()
-    vim.fn.setreg('+', vim.fn.expand '%:.')
-  end, { desc = '[Y]ank relative file [P]ath' })
-  vim.keymap.set('n', '<leader>yP', function()
-    vim.fn.setreg('+', vim.fn.expand '%:~')
-  end, { desc = '[Y]ank absolute file [P]ath' })
+  vim.keymap.set('n', '<leader>yp', function() vim.fn.setreg('+', vim.fn.expand '%:.') end, { desc = '[Y]ank relative file [P]ath' })
+  vim.keymap.set('n', '<leader>yP', function() vim.fn.setreg('+', vim.fn.expand '%:~') end, { desc = '[Y]ank absolute file [P]ath' })
+
+  -- Diagnostics are otherwise only readable in a float; these make them copyable.
+  local function format_diagnostics(diags)
+    local lines = vim.tbl_map(
+      function(d)
+        return string.format(
+          '%s:%d:%d: [%s] %s%s',
+          vim.fn.expand '%:.',
+          d.lnum + 1,
+          d.col + 1,
+          vim.diagnostic.severity[d.severity]:lower(),
+          d.message,
+          d.source and (' (' .. d.source .. ')') or ''
+        )
+      end,
+      diags
+    )
+    return table.concat(lines, '\n')
+  end
+  vim.keymap.set('n', '<leader>yd', function()
+    local diags = vim.diagnostic.get(0, { lnum = vim.fn.line '.' - 1 })
+    if vim.tbl_isempty(diags) then return vim.notify('No diagnostics on this line', vim.log.levels.INFO) end
+    vim.fn.setreg('+', format_diagnostics(diags))
+    vim.notify(('Yanked %d diagnostic(s)'):format(#diags))
+  end, { desc = '[Y]ank [D]iagnostics on current line' })
+  vim.keymap.set('n', '<leader>yD', function()
+    local diags = vim.diagnostic.get(0)
+    if vim.tbl_isempty(diags) then return vim.notify('No diagnostics in this buffer', vim.log.levels.INFO) end
+    table.sort(diags, function(a, b) return a.lnum == b.lnum and a.col < b.col or a.lnum < b.lnum end)
+    vim.fn.setreg('+', format_diagnostics(diags))
+    vim.notify(('Yanked %d diagnostic(s)'):format(#diags))
+  end, { desc = '[Y]ank all buffer [D]iagnostics' })
 
   -- Use fish as the shell for :!, :terminal, and vim.fn.system()
   -- -i flag makes it interactive so aliases from config.fish would available, but it also captures focus
@@ -137,8 +164,17 @@ do
     },
   }
 
-vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
-vim.keymap.set('n', '<leader>td', function() vim.diagnostic.enable(not vim.diagnostic.is_enabled()) end, { desc = '[T]oggle [D]iagnostics' })
+  -- `<C-w>w` normally skips floating windows, so a diagnostic float (opened by
+  -- `[d`/`]d` or the built-in `<C-w>d`) is unreachable and its text uncopyable.
+  vim.keymap.set('n', '<C-w>w', function()
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+      if vim.api.nvim_win_get_config(win).relative ~= '' and win ~= vim.api.nvim_get_current_win() then return vim.api.nvim_set_current_win(win) end
+    end
+    vim.cmd.wincmd 'w'
+  end, { desc = 'Next window, preferring a floating one' })
+
+  vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist, { desc = 'Open diagnostic [Q]uickfix list' })
+  vim.keymap.set('n', '<leader>td', function() vim.diagnostic.enable(not vim.diagnostic.is_enabled()) end, { desc = '[T]oggle [D]iagnostics' })
 
   -- Exit terminal mode in the builtin terminal with a shortcut that is a bit easier
   -- for people to discover. Otherwise, you normally need to press <C-\><C-n>, which
@@ -438,12 +474,7 @@ do
   vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
   vim.keymap.set('n', '<leader>st', '<cmd>TodoTelescope keywords=TODO<cr>', { desc = '[S]earch [T]odo' })
   vim.keymap.set('n', '<leader>sT', '<cmd>TodoTelescope<cr>', { desc = '[S]earch [T]odo Variants' })
-  vim.keymap.set(
-    'n',
-    '<leader>sF',
-    function() builtin.find_files { no_ignore = true, hidden = true } end,
-    { desc = '[S]earch [F]iles (all, incl. gitignored)' }
-  )
+  vim.keymap.set('n', '<leader>sF', function() builtin.find_files { no_ignore = true, hidden = true } end, { desc = '[S]earch [F]iles (incl. gitignored)' })
   vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
   vim.keymap.set({ 'n', 'v' }, '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
   vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
@@ -514,113 +545,110 @@ do
   vim.keymap.set('n', '<leader>sn', function() builtin.find_files { cwd = vim.fn.stdpath 'config', follow = true } end, { desc = '[S]earch [N]eovim files' })
 end
 
-    -- ============================================================
-    -- SECTION 6: LSP
-    -- LSP keymaps, server configuration
-    -- ============================================================
-    do
-      vim.pack.add { gh 'neovim/nvim-lspconfig' }
-      vim.pack.add { gh 'j-hui/fidget.nvim' }
-      require('fidget').setup {}
+-- ============================================================
+-- SECTION 6: LSP
+-- LSP keymaps, server configuration
+-- ============================================================
+do
+  vim.pack.add { gh 'neovim/nvim-lspconfig' }
+  vim.pack.add { gh 'j-hui/fidget.nvim' }
+  require('fidget').setup {}
 
-      vim.api.nvim_create_autocmd('LspAttach', {
-        group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
-        callback = function(event)
-          local map = function(keys, func, desc, mode)
-            mode = mode or 'n'
-            vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
-          end
+  vim.api.nvim_create_autocmd('LspAttach', {
+    group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
+    callback = function(event)
+      local map = function(keys, func, desc, mode)
+        mode = mode or 'n'
+        vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = 'LSP: ' .. desc })
+      end
 
-          map('grn', vim.lsp.buf.rename, '[R]e[n]ame')
-          map('gra', vim.lsp.buf.code_action, '[G]oto Code [A]ction', { 'n', 'x' })
-          map('grD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
+      map('grn', vim.lsp.buf.rename, '[R]e[n]ame')
+      map('gra', vim.lsp.buf.code_action, '[G]oto Code [A]ction', { 'n', 'x' })
+      map('grD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
 
-          local client = vim.lsp.get_client_by_id(event.data.client_id)
-          if client and client:supports_method('textDocument/documentHighlight', event.buf) then
-            local highlight_augroup = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
-            vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
-              buffer = event.buf,
-              group = highlight_augroup,
-              callback = vim.lsp.buf.document_highlight,
-            })
-            vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI' }, {
-              buffer = event.buf,
-              group = highlight_augroup,
-              callback = vim.lsp.buf.clear_references,
-            })
-            vim.api.nvim_create_autocmd('LspDetach', {
-              group = vim.api.nvim_create_augroup('kickstart-lsp-detach', { clear = true }),
-              callback = function(event2)
-                vim.lsp.buf.clear_references()
-                vim.api.nvim_clear_autocmds { group = 'kickstart-lsp-highlight', buffer = event2.buf }
-              end,
-            })
-          end
-
-          if client and client:supports_method('textDocument/inlayHint', event.buf) then
-            map('<leader>th', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end,
-  '[T]oggle Inlay [H]ints')
-          end
-        end,
-      })
-
-      local servers = {
-        jdtls = {},
-
-        nixd = {},
-
-        basedpyright = {},
-
-        texlab = {},
-
-        jsonls = {},
-
-        yamlls = {},
-
-        lemminx = {},
-
-        html = {},
-
-        cssls = {},
-
-        -- Special Lua Config, as recommended by neovim help docs
-        lua_ls = {
-          on_init = function(client)
-            client.server_capabilities.documentFormattingProvider = false
-            if client.workspace_folders then
-              local path = client.workspace_folders[1].name
-              if path ~= vim.fn.stdpath 'config' and (vim.uv.fs_stat(path .. '/.luarc.json') or vim.uv.fs_stat(path .. '/.luarc.jsonc')) then return end
-            end
-            client.config.settings.Lua = vim.tbl_deep_extend('force', client.config.settings.Lua, {
-              runtime = { version = 'LuaJIT', path = { 'lua/?.lua', 'lua/?/init.lua' } },
-              workspace = {
-                checkThirdParty = false,
-                library = vim.tbl_extend('force', vim.api.nvim_get_runtime_file('', true), {
-    		 '${3rd}/luv/library',
-    		 '${3rd}/busted/library',
-                }),
-              },
-            })
+      local client = vim.lsp.get_client_by_id(event.data.client_id)
+      if client and client:supports_method('textDocument/documentHighlight', event.buf) then
+        local highlight_augroup = vim.api.nvim_create_augroup('kickstart-lsp-highlight', { clear = false })
+        vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
+          buffer = event.buf,
+          group = highlight_augroup,
+          callback = vim.lsp.buf.document_highlight,
+        })
+        vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI' }, {
+          buffer = event.buf,
+          group = highlight_augroup,
+          callback = vim.lsp.buf.clear_references,
+        })
+        vim.api.nvim_create_autocmd('LspDetach', {
+          group = vim.api.nvim_create_augroup('kickstart-lsp-detach', { clear = true }),
+          callback = function(event2)
+            vim.lsp.buf.clear_references()
+            vim.api.nvim_clear_autocmds { group = 'kickstart-lsp-highlight', buffer = event2.buf }
           end,
-          settings = { Lua = { format = { enable = false } } },
-        },
-      }
-
-      -- In this Nix-First setup, we skip Mason and just enable the servers directly!
-      local capabilities = vim.lsp.protocol.make_client_capabilities()
-
-      -- Add blink.cmp capabilities if you use it for autocomplete
-      local has_blink, blink = pcall(require, 'blink.cmp')
-      if has_blink then
-          capabilities = vim.tbl_deep_extend('force', capabilities, blink.get_lsp_capabilities())
+        })
       end
 
-      for name, server_config in pairs(servers) do
-        server_config.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server_config.capabilities or {})
-        vim.lsp.config(name, server_config)
-        vim.lsp.enable(name)
+      if client and client:supports_method('textDocument/inlayHint', event.buf) then
+        map('<leader>th', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end, '[T]oggle Inlay [H]ints')
       end
-    end
+    end,
+  })
+
+  local servers = {
+    jdtls = {},
+
+    nixd = {},
+
+    basedpyright = {},
+
+    texlab = {},
+
+    jsonls = {},
+
+    yamlls = {},
+
+    lemminx = {},
+
+    html = {},
+
+    cssls = {},
+
+    -- Special Lua Config, as recommended by neovim help docs
+    lua_ls = {
+      on_init = function(client)
+        client.server_capabilities.documentFormattingProvider = false
+        if client.workspace_folders then
+          local path = client.workspace_folders[1].name
+          if path ~= vim.fn.stdpath 'config' and (vim.uv.fs_stat(path .. '/.luarc.json') or vim.uv.fs_stat(path .. '/.luarc.jsonc')) then return end
+        end
+        client.config.settings.Lua = vim.tbl_deep_extend('force', client.config.settings.Lua, {
+          runtime = { version = 'LuaJIT', path = { 'lua/?.lua', 'lua/?/init.lua' } },
+          workspace = {
+            checkThirdParty = false,
+            library = vim.tbl_extend('force', vim.api.nvim_get_runtime_file('', true), {
+              '${3rd}/luv/library',
+              '${3rd}/busted/library',
+            }),
+          },
+        })
+      end,
+      settings = { Lua = { format = { enable = false } } },
+    },
+  }
+
+  -- In this Nix-First setup, we skip Mason and just enable the servers directly!
+  local capabilities = vim.lsp.protocol.make_client_capabilities()
+
+  -- Add blink.cmp capabilities if you use it for autocomplete
+  local has_blink, blink = pcall(require, 'blink.cmp')
+  if has_blink then capabilities = vim.tbl_deep_extend('force', capabilities, blink.get_lsp_capabilities()) end
+
+  for name, server_config in pairs(servers) do
+    server_config.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server_config.capabilities or {})
+    vim.lsp.config(name, server_config)
+    vim.lsp.enable(name)
+  end
+end
 
 -- ============================================================
 -- SECTION 7: FORMATTING
@@ -630,12 +658,12 @@ do
   -- [[ Formatting ]]
   vim.pack.add { gh 'stevearc/conform.nvim' }
   require('conform').setup {
-    notify_on_error = false,
+    -- Keep errors visible: a misnamed formatter silently fell back to the LSP
+    notify_on_error = true,
     format_on_save = function(bufnr)
       -- You can specify filetypes to autoformat on save here:
       local enabled_filetypes = {
-        -- lua = true,
-        -- python = true,
+        lua = true,
         java = true,
         nix = true,
       }
@@ -652,7 +680,8 @@ do
     formatters_by_ft = {
       lua = { 'stylua' },
       nix = { 'nixfmt' },
-      java = { 'google_java_format' },
+      -- lsp_format = 'never': jdtls must never format Java
+      java = { 'google-java-format', lsp_format = 'never' },
       -- rust = { 'rustfmt' },
       -- Conform can also run multiple formatters sequentially
       -- python = { "isort", "black" },
@@ -661,12 +690,8 @@ do
       -- javascript = { "prettierd", "prettier", stop_after_first = true },
     },
     formatters = {
-      google_java_format = {
-        -- Mirror tmf652-service pom.xml spotless <googleJavaFormat>.
-        --   --skip-javadoc-formatting      -> matches <formatJavadoc>false</formatJavadoc>
-        --   --skip-reflowing-long-strings  -> spotless does NOT reflow long string
-        --     literals; without this GJF wraps them and spotless:check fails.
-        -- prepend_args go before conform's default '-' (stdin) arg.
+      -- Name must match conform's builtin `conform/formatters/google-java-format.lua`
+      ['google-java-format'] = {
         prepend_args = { '--skip-javadoc-formatting', '--skip-reflowing-long-strings' },
       },
     },
@@ -838,6 +863,9 @@ do
   -- grug-far.
   -- fugitive
   -- nvim-jdtls
+  --    The bundled nvim-lspconfig `lsp/jdtls.lua` registers no handlers, so definition
+  --    jumps into dependency jars return an unopenable `jdt://contents/...` URI. nvim-jdtls
+  --    provides that handler plus JdtUpdateConfig, test running and organize-imports.
 end
 
 -- The line beneath this is called `modeline`. See `:help modeline`
