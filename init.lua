@@ -551,6 +551,8 @@ end
 -- ============================================================
 do
   vim.pack.add { gh 'neovim/nvim-lspconfig' }
+
+  vim.pack.add { gh 'mfussenegger/nvim-jdtls' }
   vim.pack.add { gh 'j-hui/fidget.nvim' }
   require('fidget').setup {}
 
@@ -591,10 +593,24 @@ do
       if client and client:supports_method('textDocument/inlayHint', event.buf) then
         map('<leader>th', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end, '[T]oggle Inlay [H]ints')
       end
+
+      -- Point `:make` at the project's build wrapper. Buffer-local and keyed on
+      -- root_dir, so it neither leaks into other buffers nor depends on cwd.
+      -- Needs the direnv shell for JAVA_HOME, same as running ./mvnw by hand.
+      if client and client.name == 'jdtls' and client.root_dir then
+        for wrapper, target in pairs { mvnw = 'compile', gradlew = 'assemble' } do
+          local path = client.root_dir .. '/' .. wrapper
+          if vim.fn.filereadable(path) == 1 then
+            vim.bo[event.buf].makeprg = path .. ' ' .. target
+            break
+          end
+        end
+      end
     end,
   })
 
   local servers = {
+    -- Extra settings live in after/lsp/jdtls.lua
     jdtls = {},
 
     nixd = {},
@@ -862,10 +878,10 @@ do
   -- neotest
   -- grug-far.
   -- fugitive
-  -- nvim-jdtls
-  --    The bundled nvim-lspconfig `lsp/jdtls.lua` registers no handlers, so definition
-  --    jumps into dependency jars return an unopenable `jdt://contents/...` URI. nvim-jdtls
-  --    provides that handler plus JdtUpdateConfig, test running and organize-imports.
+
+  -- TODO: once nvim-dap lands, wire jdtls' debug/test bundles in after/lsp/jdtls.lua:
+  -- init_options.bundles = jars from nixpkgs vscode-extensions.vscjava.vscode-java-debug
+  -- and .vscode-java-test. Unlocks nvim-jdtls' dap + test runner.
 end
 
 -- The line beneath this is called `modeline`. See `:help modeline`
