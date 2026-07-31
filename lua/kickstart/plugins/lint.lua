@@ -14,7 +14,9 @@ lint.linters.markdownlint.args = {
   'MD013',
   'MD025',
   'MD026',
+  'MD033',
   'MD041',
+  'MD045',
   '--',
 }
 
