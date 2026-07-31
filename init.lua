@@ -556,6 +556,11 @@ do
   vim.pack.add { gh 'j-hui/fidget.nvim' }
   require('fidget').setup {}
 
+  -- nvim-lspconfig would define these, but its plugin/lspconfig.lua returns early
+  -- once Neovim ships a builtin `:lsp` -- which only covers enable/disable/restart/stop.
+  vim.api.nvim_create_user_command('LspInfo', 'checkhealth vim.lsp', { desc = 'Alias to `:checkhealth vim.lsp`' })
+  vim.api.nvim_create_user_command('LspLog', function() vim.cmd.tabedit(vim.lsp.log.get_filename()) end, { desc = 'Open the Nvim LSP client log' })
+
   vim.api.nvim_create_autocmd('LspAttach', {
     group = vim.api.nvim_create_augroup('kickstart-lsp-attach', { clear = true }),
     callback = function(event)
