@@ -618,7 +618,14 @@ do
     -- Extra settings live in after/lsp/jdtls.lua
     jdtls = {},
 
-    nixd = {},
+    nixd = {
+      settings = {
+        nixd = {
+          nixpkgs = { expr = 'import <nixpkgs> { }' },
+          formatting = { command = { 'nixfmt' } },
+        },
+      },
+    },
 
     basedpyright = {},
 
