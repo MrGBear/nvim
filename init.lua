@@ -664,10 +664,9 @@ do
     },
   }
 
-  -- In this Nix-First setup, we skip Mason and just enable the servers directly!
+  -- Just enable the servers installed by nix
   local capabilities = vim.lsp.protocol.make_client_capabilities()
 
-  -- Add blink.cmp capabilities if you use it for autocomplete
   local has_blink, blink = pcall(require, 'blink.cmp')
   if has_blink then capabilities = vim.tbl_deep_extend('force', capabilities, blink.get_lsp_capabilities()) end
 
@@ -877,23 +876,13 @@ end
 -- kickstart.plugins.* examples
 -- ============================================================
 do
-  -- require 'kickstart.plugins.debug'
+  require 'kickstart.plugins.debug'
   require 'kickstart.plugins.lint'
   -- require 'kickstart.plugins.autopairs'
   -- require 'kickstart.plugins.neo-tree'
   require 'kickstart.plugins.gitsigns'
 
   require 'custom.plugins'
-  -- TODO: More Plugin
-  -- hardtime or precognition
-  -- nvim-dap
-  -- neotest
-  -- grug-far.
-  -- fugitive
-
-  -- TODO: once nvim-dap lands, wire jdtls' debug/test bundles in after/lsp/jdtls.lua:
-  -- init_options.bundles = jars from nixpkgs vscode-extensions.vscjava.vscode-java-debug
-  -- and .vscode-java-test. Unlocks nvim-jdtls' dap + test runner.
 end
 
 -- The line beneath this is called `modeline`. See `:help modeline`
