@@ -491,8 +491,20 @@ do
     callback = function(event)
       local buf = event.buf
 
-      -- Find references for the word under your cursor.
-      vim.keymap.set('n', 'grr', builtin.lsp_references, { buffer = buf, desc = '[G]oto [R]eferences' })
+      -- Find production references. Keep this Java-focused: other languages use
+      -- different test layouts, and Rust can keep tests in the source file.
+      -- LSP has no portable test filter; JDT LS's java.search.scope=main is
+      -- semantic but global, so it cannot provide separate grr/grR behavior.
+      -- See: https://github.com/eclipse-jdtls/eclipse.jdt.ls/pull/3253
+      vim.keymap.set(
+        'n',
+        'grr',
+        function() builtin.lsp_references { file_ignore_patterns = { '/src/test/' } } end,
+        { buffer = buf, desc = '[G]oto [R]eferences (source)' }
+      )
+
+      -- Find all references, including tests
+      vim.keymap.set('n', 'grR', builtin.lsp_references, { buffer = buf, desc = '[G]oto [R]eferences (all)' })
 
       -- Jump to the implementation of the word under your cursor.
       -- Useful when your language has ways of declaring types without an actual implementation.

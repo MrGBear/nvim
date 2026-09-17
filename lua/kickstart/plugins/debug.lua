@@ -14,6 +14,15 @@ vim.keymap.set('n', '<F2>', dap.step_over, { desc = 'Debug: Step Over' })
 vim.keymap.set('n', '<F3>', dap.step_out, { desc = 'Debug: Step Out' })
 vim.keymap.set('n', '<leader>b', dap.toggle_breakpoint, { desc = 'Debug: Toggle Breakpoint' })
 vim.keymap.set('n', '<leader>B', function() dap.set_breakpoint(vim.fn.input 'Breakpoint condition: ') end, { desc = 'Debug: Set Breakpoint' })
+vim.keymap.set('n', '<leader>da', function()
+  dap.run {
+    type = 'java',
+    request = 'attach',
+    name = 'Attach to Quarkus :5005',
+    hostName = '127.0.0.1',
+    port = 5005,
+  }
+end, { desc = 'Debug: Attach to Quarkus' })
 vim.keymap.set('n', '<F7>', dapui.toggle, { desc = 'Debug: Toggle UI' })
 
 dapui.setup {
