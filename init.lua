@@ -305,21 +305,6 @@ do
   vim.pack.add { gh 'NMAC427/guess-indent.nvim' }
   require('guess-indent').setup {}
 
-  -- Here is a more advanced configuration example that passes options to `gitsigns.nvim`
-  --
-  -- See `:help gitsigns` to understand what each configuration key does.
-  -- Adds git related signs to the gutter, as well as utilities for managing changes
-  vim.pack.add { gh 'lewis6991/gitsigns.nvim' }
-  require('gitsigns').setup {
-    signs = {
-      add = { text = '+' }, ---@diagnostic disable-line: missing-fields
-      change = { text = '~' }, ---@diagnostic disable-line: missing-fields
-      delete = { text = '_' }, ---@diagnostic disable-line: missing-fields
-      topdelete = { text = '‾' }, ---@diagnostic disable-line: missing-fields
-      changedelete = { text = '~' }, ---@diagnostic disable-line: missing-fields
-    },
-  }
-
   -- Useful plugin to show you pending keybinds.
   vim.pack.add { gh 'folke/which-key.nvim' }
   require('which-key').setup {
@@ -888,6 +873,10 @@ end
 -- kickstart.plugins.* examples
 -- ============================================================
 do
+  -- TODO: Improve startup time (~340 ms empty startup):
+  -- - Lazy-load DAP/DAP UI on the first debug action.
+  -- - Load custom plugins by filetype or command instead of eagerly.
+  -- - Preinstall Treesitter parsers
   require 'kickstart.plugins.debug'
   require 'kickstart.plugins.lint'
   -- require 'kickstart.plugins.autopairs'

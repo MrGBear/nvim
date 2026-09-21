@@ -55,6 +55,7 @@ lint.linters.markdownlint.args = {
 -- Create autocommand which carries out the actual linting
 -- on the specified events.
 local lint_augroup = vim.api.nvim_create_augroup('lint', { clear = true })
+-- NOTE: Could be reduced to only BufWritePost for heavier linters
 vim.api.nvim_create_autocmd({ 'BufEnter', 'BufWritePost', 'InsertLeave' }, {
   group = lint_augroup,
   callback = function()
