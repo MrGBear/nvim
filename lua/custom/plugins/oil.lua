@@ -121,6 +121,87 @@ local function show_file_properties()
   end
 end
 
+-- Extract archive under cursor (X)
+local function extract_archive()
+  local oil = require 'oil'
+  local entry = oil.get_cursor_entry()
+  local dir = oil.get_current_dir()
+  if not entry or not dir then return end
+
+  if entry.type == 'directory' then
+    vim.notify('Cannot extract a directory: ' .. entry.name, vim.log.levels.WARN)
+    return
+  end
+
+  local full_path = vim.fs.normalize(((dir .. entry.name):gsub('^oil[%w_-]*://', '')))
+  local cmd = { 'ouch', 'decompress', full_path, '--dir', dir, '--yes' }
+
+  -- Snapshot existing directory contents to detect newly extracted items
+  local before = {}
+  local ok_dir, dir_iter = pcall(vim.fs.dir, dir)
+  if ok_dir and dir_iter then
+    for name in dir_iter do
+      before[name] = true
+    end
+  end
+
+  -- Visual indicator while extracting
+  local bufnr = vim.api.nvim_get_current_buf()
+  local cur_lnum = vim.api.nvim_win_get_cursor(0)[1]
+  local extract_ns = vim.api.nvim_create_namespace 'oil_extract'
+
+  vim.api.nvim_buf_set_extmark(bufnr, extract_ns, cur_lnum - 1, 0, {
+    virt_text = { { '  󰗄 Extracting...', 'Special' } },
+    virt_text_pos = 'eol',
+    line_hl_group = 'DiffChange',
+  })
+
+  vim.notify('Extracting ' .. entry.name .. '...', vim.log.levels.INFO)
+  vim.system(cmd, {}, function(obj)
+    vim.schedule(function()
+      if vim.api.nvim_buf_is_valid(bufnr) then vim.api.nvim_buf_clear_namespace(bufnr, extract_ns, 0, -1) end
+
+      if obj.code == 0 then
+        vim.notify('Extracted: ' .. entry.name, vim.log.levels.INFO)
+        require('oil.actions').refresh.callback()
+
+        -- Flash highlight newly created items and jump cursor
+        vim.defer_fn(function()
+          if not vim.api.nvim_buf_is_valid(bufnr) then return end
+          local new_items = {}
+          local ok_after, after_iter = pcall(vim.fs.dir, dir)
+          if ok_after and after_iter then
+            for name in after_iter do
+              if not before[name] then new_items[name] = true end
+            end
+          end
+
+          local first_lnum = nil
+          local flash_ns = vim.api.nvim_create_namespace 'oil_extract_flash'
+          for l = 1, vim.api.nvim_buf_line_count(bufnr) do
+            local e = oil.get_entry_on_line(bufnr, l)
+            if e and new_items[e.name] then
+              first_lnum = first_lnum or l
+              vim.api.nvim_buf_set_extmark(bufnr, flash_ns, l - 1, 0, {
+                line_hl_group = 'DiffAdd',
+              })
+            end
+          end
+
+          if first_lnum then pcall(vim.api.nvim_win_set_cursor, 0, { first_lnum, 0 }) end
+
+          vim.defer_fn(function()
+            if vim.api.nvim_buf_is_valid(bufnr) then vim.api.nvim_buf_clear_namespace(bufnr, flash_ns, 0, -1) end
+          end, 2000)
+        end, 100)
+      else
+        local err = (obj.stderr and obj.stderr ~= '') and obj.stderr or ('Exit code ' .. obj.code)
+        vim.notify('Failed to extract ' .. entry.name .. ': ' .. err, vim.log.levels.ERROR)
+      end
+    end)
+  end)
+end
+
 -- Buffer-local path yanking for Oil
 local function yank_oil_path(modifier, label, bufnr)
   local oil = require 'oil'
@@ -160,8 +241,11 @@ local function yank_oil_path(modifier, label, bufnr)
   end
 end
 
+-- TODO: Eval oil-vcs https://github.com/SirZenith/oil-vcs-status
 require('oil').setup {
   default_file_explorer = true,
+  delete_to_trash = true,
+  skip_confirm_for_simple_edits = false,
   columns = { 'icon' },
 
   keymaps = {
@@ -181,6 +265,7 @@ require('oil').setup {
     ['g\\'] = 'actions.toggle_trash',
     ['gd'] = { desc = 'Toggle detail view (ls -l)', callback = toggle_detail_view },
     ['gp'] = { desc = 'Show file properties popup', callback = show_file_properties },
+    ['X'] = { desc = 'Extract archive here', callback = extract_archive },
   },
 }
 
