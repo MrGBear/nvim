@@ -39,39 +39,28 @@ do
   vim.keymap.set({ 'n', 'x' }, '<leader>v', '""p', { desc = 'Paste from Neovim register (last d/c/x)' })
 
   local function yank_path(modifier, label)
-    local path
-    if vim.bo.filetype == 'oil' then
-      local ok, oil = pcall(require, 'oil')
-      if ok then
-        local entry = oil.get_cursor_entry()
-        local dir = oil.get_current_dir()
-        if dir and entry and entry.name then
-          path = dir .. entry.name
-        elseif dir then
-          path = dir
-        end
-      end
-    end
-
-    if not path or path == '' then
-      path = vim.fn.expand '%:p'
-    end
-
-    if not path or path == '' then
+    local name = vim.api.nvim_buf_get_name(0)
+    if name == '' then
       vim.notify('No file path to yank', vim.log.levels.WARN)
       return
     end
 
-    -- Strip virtual oil adapter prefixes (e.g. oil://, oil-ssh://, oil-trash://)
-    path = path:gsub('^oil[%w_-]*://', '')
-    path = vim.fs.normalize(path)
-    local formatted = vim.fn.fnamemodify(path, modifier)
-    vim.fn.setreg('+', formatted)
-    vim.notify('Yanked ' .. label .. ' path: ' .. formatted)
+    local path = vim.fn.fnamemodify(vim.fs.normalize(name), modifier)
+    local is_visual = vim.api.nvim_get_mode().mode:match '^[vV\22]' ~= nil
+
+    if is_visual then
+      local l1, l2 = vim.fn.line 'v', vim.fn.line '.'
+      local s, e = math.min(l1, l2), math.max(l1, l2)
+      path = string.format('%s:%s', path, s == e and s or (s .. '-' .. e))
+      vim.api.nvim_feedkeys(vim.keycode '<Esc>', 'nx', false)
+    end
+
+    vim.fn.setreg('+', path)
+    vim.notify('Yanked ' .. label .. ' path: ' .. path)
   end
 
-  vim.keymap.set('n', '<leader>yp', function() yank_path(':.', 'relative') end, { desc = '[Y]ank relative file [P]ath' })
-  vim.keymap.set('n', '<leader>yP', function() yank_path(':~', 'absolute') end, { desc = '[Y]ank absolute file [P]ath' })
+  vim.keymap.set({ 'n', 'x' }, '<leader>yp', function() yank_path(':.', 'relative') end, { desc = '[Y]ank relative file [P]ath' })
+  vim.keymap.set({ 'n', 'x' }, '<leader>yP', function() yank_path(':~', 'absolute') end, { desc = '[Y]ank absolute file [P]ath' })
 
   -- Diagnostics are otherwise only readable in a float; these make them copyable.
   local function format_diagnostics(diags)
