@@ -37,8 +37,41 @@ do
   vim.keymap.set({ 'n', 'x' }, 'p', '"+p', { desc = 'Paste from system clipboard' })
   vim.keymap.set({ 'n', 'x' }, 'P', '"+P', { desc = 'Paste before from system clipboard' })
   vim.keymap.set({ 'n', 'x' }, '<leader>v', '""p', { desc = 'Paste from Neovim register (last d/c/x)' })
-  vim.keymap.set('n', '<leader>yp', function() vim.fn.setreg('+', vim.fn.expand '%:.') end, { desc = '[Y]ank relative file [P]ath' })
-  vim.keymap.set('n', '<leader>yP', function() vim.fn.setreg('+', vim.fn.expand '%:~') end, { desc = '[Y]ank absolute file [P]ath' })
+
+  local function yank_path(modifier, label)
+    local path
+    if vim.bo.filetype == 'oil' then
+      local ok, oil = pcall(require, 'oil')
+      if ok then
+        local entry = oil.get_cursor_entry()
+        local dir = oil.get_current_dir()
+        if dir and entry and entry.name then
+          path = dir .. entry.name
+        elseif dir then
+          path = dir
+        end
+      end
+    end
+
+    if not path or path == '' then
+      path = vim.fn.expand '%:p'
+    end
+
+    if not path or path == '' then
+      vim.notify('No file path to yank', vim.log.levels.WARN)
+      return
+    end
+
+    -- Strip virtual oil adapter prefixes (e.g. oil://, oil-ssh://, oil-trash://)
+    path = path:gsub('^oil[%w_-]*://', '')
+    path = vim.fs.normalize(path)
+    local formatted = vim.fn.fnamemodify(path, modifier)
+    vim.fn.setreg('+', formatted)
+    vim.notify('Yanked ' .. label .. ' path: ' .. formatted)
+  end
+
+  vim.keymap.set('n', '<leader>yp', function() yank_path(':.', 'relative') end, { desc = '[Y]ank relative file [P]ath' })
+  vim.keymap.set('n', '<leader>yP', function() yank_path(':~', 'absolute') end, { desc = '[Y]ank absolute file [P]ath' })
 
   -- Diagnostics are otherwise only readable in a float; these make them copyable.
   local function format_diagnostics(diags)
