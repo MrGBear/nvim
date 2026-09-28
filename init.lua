@@ -37,8 +37,30 @@ do
   vim.keymap.set({ 'n', 'x' }, 'p', '"+p', { desc = 'Paste from system clipboard' })
   vim.keymap.set({ 'n', 'x' }, 'P', '"+P', { desc = 'Paste before from system clipboard' })
   vim.keymap.set({ 'n', 'x' }, '<leader>v', '""p', { desc = 'Paste from Neovim register (last d/c/x)' })
-  vim.keymap.set('n', '<leader>yp', function() vim.fn.setreg('+', vim.fn.expand '%:.') end, { desc = '[Y]ank relative file [P]ath' })
-  vim.keymap.set('n', '<leader>yP', function() vim.fn.setreg('+', vim.fn.expand '%:~') end, { desc = '[Y]ank absolute file [P]ath' })
+
+  local function yank_path(modifier, label)
+    local name = vim.api.nvim_buf_get_name(0)
+    if name == '' then
+      vim.notify('No file path to yank', vim.log.levels.WARN)
+      return
+    end
+
+    local path = vim.fn.fnamemodify(vim.fs.normalize(name), modifier)
+    local is_visual = vim.api.nvim_get_mode().mode:match '^[vV\22]' ~= nil
+
+    if is_visual then
+      local l1, l2 = vim.fn.line 'v', vim.fn.line '.'
+      local s, e = math.min(l1, l2), math.max(l1, l2)
+      path = string.format('%s:%s', path, s == e and s or (s .. '-' .. e))
+      vim.api.nvim_feedkeys(vim.keycode '<Esc>', 'nx', false)
+    end
+
+    vim.fn.setreg('+', path)
+    vim.notify('Yanked ' .. label .. ' path: ' .. path)
+  end
+
+  vim.keymap.set({ 'n', 'x' }, '<leader>yp', function() yank_path(':.', 'relative') end, { desc = '[Y]ank relative file [P]ath' })
+  vim.keymap.set({ 'n', 'x' }, '<leader>yP', function() yank_path(':~', 'absolute') end, { desc = '[Y]ank absolute file [P]ath' })
 
   -- Diagnostics are otherwise only readable in a float; these make them copyable.
   local function format_diagnostics(diags)
