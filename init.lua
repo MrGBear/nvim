@@ -2,6 +2,20 @@
 -- SECTION 1: OPTIONS
 -- Core Neovim settings, leaders, options, basic keymaps, basic autocmds
 -- ============================================================
+local ignored_directories = { '.direnv' }
+
+local function telescope_ignore_patterns(directories)
+  local patterns = {}
+  for _, directory in ipairs(directories) do
+    local escaped = vim.pesc(directory)
+    vim.list_extend(patterns, {
+      '^' .. escaped .. '/',
+      '/' .. escaped .. '/',
+    })
+  end
+  return patterns
+end
+
 do
   -- Enable faster startup by caching compiled Lua modules
   vim.loader.enable()
@@ -32,6 +46,11 @@ do
   -- or <leader>v as a shortcut.
   --  See `:help 'clipboard'` and `:help registers`
   vim.opt.clipboard = ''
+  local wildignore = {}
+  for _, directory in ipairs(ignored_directories) do
+    vim.list_extend(wildignore, { directory, directory .. '/**', '**/' .. directory, '**/' .. directory .. '/**' })
+  end
+  vim.opt.wildignore:append(wildignore)
   vim.keymap.set({ 'n', 'x' }, 'y', '"+y', { desc = 'Yank to system clipboard' })
   vim.keymap.set('n', 'Y', '"+Y', { desc = 'Yank line to system clipboard' })
   vim.keymap.set({ 'n', 'x' }, 'p', '"+p', { desc = 'Paste from system clipboard' })
@@ -464,7 +483,11 @@ do
     --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
     --   },
     -- },
-    -- pickers = {}
+    defaults = {
+      file_ignore_patterns = telescope_ignore_patterns(ignored_directories),
+      -- Cut file paths from the beginnning not the end
+      path_display = { 'truncate' },
+    },
     extensions = {
       ['ui-select'] = { require('telescope.themes').get_dropdown() },
     },
@@ -672,6 +695,7 @@ do
           runtime = { version = 'LuaJIT', path = { 'lua/?.lua', 'lua/?/init.lua' } },
           workspace = {
             checkThirdParty = false,
+            ignoreDir = ignored_directories,
             library = vim.tbl_extend('force', vim.api.nvim_get_runtime_file('', true), {
               '${3rd}/luv/library',
               '${3rd}/busted/library',
