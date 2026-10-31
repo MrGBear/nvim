@@ -11,8 +11,8 @@ require('nvim-treesitter-textobjects').setup {
   },
 }
 
-local select = require('nvim-treesitter-textobjects.select')
-local move = require('nvim-treesitter-textobjects.move')
+local select = require 'nvim-treesitter-textobjects.select'
+local move = require 'nvim-treesitter-textobjects.move'
 
 -- Select
 vim.keymap.set({ 'x', 'o' }, 'af', function() select.select_textobject('@function.outer', 'textobjects') end, { desc = 'Select [A]round [F]unction' })

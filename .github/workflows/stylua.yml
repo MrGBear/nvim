@@ -3,12 +3,11 @@ name: Check Lua Formatting
 on:
   push:
     branches:
-      - master
+      - main
   pull_request:
 
 jobs:
   stylua-check:
-    if: github.repository == 'nvim-lua/kickstart.nvim'
     name: Stylua Check
     runs-on: ubuntu-latest
     steps:
