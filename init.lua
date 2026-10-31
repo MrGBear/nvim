@@ -714,9 +714,6 @@ do
   })
 
   local servers = {
-    -- Extra settings live in after/lsp/jdtls.lua
-    jdtls = {},
-
     nixd = {
       settings = {
         nixd = {
@@ -727,8 +724,6 @@ do
     },
 
     basedpyright = {},
-
-    texlab = {},
 
     jsonls = {},
 
@@ -767,6 +762,9 @@ do
     },
   }
 
+  -- Only enable jdtls when java-dev installs it; extra settings live in after/lsp/jdtls.lua
+  if vim.fn.executable 'jdtls' == 1 then servers.jdtls = {} end
+
   -- Just enable the servers installed by nix
   local capabilities = vim.lsp.protocol.make_client_capabilities()
 
@@ -794,7 +792,8 @@ do
       -- You can specify filetypes to autoformat on save here:
       local enabled_filetypes = {
         lua = true,
-        java = true,
+        -- java-dev provides the formatter
+        java = vim.fn.executable 'google-java-format' == 1,
         nix = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
