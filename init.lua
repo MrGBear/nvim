@@ -363,21 +363,21 @@ do
     -- gitsigns.nvim's recommended keymaps:
     on_attach = function(bufnr)
       -- Navigation
-      vim.keymap.set('n', ']c', function()
+      vim.keymap.set('n', ']h', function()
         if vim.wo.diff then
           vim.cmd.normal { ']c', bang = true }
         else
           gitsigns.nav_hunk 'next'
         end
-      end, { desc = 'Jump to next git [c]hange', buf = bufnr })
+      end, { desc = 'Jump to next git [h]unk', buf = bufnr })
 
-      vim.keymap.set('n', '[c', function()
+      vim.keymap.set('n', '[h', function()
         if vim.wo.diff then
           vim.cmd.normal { '[c', bang = true }
         else
           gitsigns.nav_hunk 'prev'
         end
-      end, { desc = 'Jump to previous git [c]hange', buf = bufnr })
+      end, { desc = 'Jump to previous git [h]unk', buf = bufnr })
 
       -- Visual mode actions
       vim.keymap.set('v', '<leader>hs', function() gitsigns.stage_hunk { vim.fn.line '.', vim.fn.line 'v' } end, { desc = 'git [s]tage hunk', buf = bufnr })
@@ -414,6 +414,11 @@ do
       { '<leader>s', group = '[S]earch', mode = { 'n', 'v' } },
       { '<leader>t', group = '[T]oggle' },
       { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } }, -- Enable gitsigns recommended keymaps first
+      { '<leader>c', group = '[C]ode' },
+      { '<leader>d', group = '[D]ebug' },
+      { '<leader>j', group = '[J]ava' },
+      { '<leader>x', group = 'Diagnostics' },
+      { '<leader>y', group = '[Y]ank' },
       { 'gr', group = 'LSP Actions', mode = { 'n' } },
     },
   }
@@ -466,6 +471,9 @@ do
     },
     n_lines = 500,
   }
+
+  -- Auto-close brackets and quotes
+  require('mini.pairs').setup()
 
   -- Add/delete/replace surroundings (brackets, quotes, etc.)
   --
@@ -566,7 +574,7 @@ do
   vim.keymap.set({ 'n', 'v' }, '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
   vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
   vim.keymap.set('n', '<leader>sd', builtin.diagnostics, { desc = '[S]earch [D]iagnostics' })
-  vim.keymap.set('n', '<leader>sr', builtin.resume, { desc = '[S]earch [R]esume' })
+  vim.keymap.set('n', '<leader>sR', builtin.resume, { desc = '[S]earch [R]esume' })
   vim.keymap.set('n', '<leader>s.', builtin.oldfiles, { desc = '[S]earch Recent Files ("." for repeat)' })
   vim.keymap.set('n', '<leader>sc', builtin.commands, { desc = '[S]earch [C]ommands' })
   vim.keymap.set('n', '<leader><leader>', builtin.buffers, { desc = '[ ] Find existing buffers' })
@@ -698,6 +706,26 @@ do
         map('<leader>th', function() vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled { bufnr = event.buf }) end, '[T]oggle Inlay [H]ints')
       end
 
+      if client and client.name == 'jdtls' then
+        -- Native vim.lsp.enable bypasses nvim-jdtls' start_or_attach, so register
+        -- the java-debug adapter explicitly before the first debug session.
+        local has_dap, dap = pcall(require, 'dap')
+        if has_dap and not dap.adapters.java then require('jdtls').setup_dap { hotcodereplace = 'auto' } end
+
+        local jdtls = require 'jdtls'
+        map('<leader>jo', jdtls.organize_imports, '[J]ava [O]rganize imports')
+        map('<leader>jt', jdtls.test_class, '[J]ava run [T]est class')
+        map('<leader>jn', jdtls.test_nearest_method, '[J]ava run [N]earest test')
+        map('<leader>jT', jdtls.pick_test, '[J]ava pick [T]est')
+        map('<leader>jg', require('jdtls.tests').goto_subjects, '[J]ava [G]oto test/subject')
+        map('<leader>js', jdtls.super_implementation, '[J]ava goto [S]uper implementation')
+        map('<leader>jv', jdtls.extract_variable_all, '[J]ava extract [V]ariable')
+        map('<leader>jc', jdtls.extract_constant, '[J]ava extract [C]onstant')
+        map('<leader>jv', '<Esc><Cmd>lua require("jdtls").extract_variable_all(true)<CR>', '[J]ava extract [V]ariable', 'x')
+        map('<leader>jc', '<Esc><Cmd>lua require("jdtls").extract_constant(true)<CR>', '[J]ava extract [C]onstant', 'x')
+        map('<leader>jm', '<Esc><Cmd>lua require("jdtls").extract_method(true)<CR>', '[J]ava extract [M]ethod', 'x')
+      end
+
       -- Point `:make` at the project's build wrapper. Buffer-local and keyed on
       -- root_dir, so it neither leaks into other buffers nor depends on cwd.
       -- Needs the direnv shell for JAVA_HOME, same as running ./mvnw by hand.
@@ -767,6 +795,11 @@ do
 
   -- Just enable the servers installed by nix
   local capabilities = vim.lsp.protocol.make_client_capabilities()
+  -- Allows Oil rename/move to ask the LSP to update imports and references.
+  capabilities.workspace.fileOperations = vim.tbl_deep_extend('force', capabilities.workspace.fileOperations or {}, {
+    didRename = true,
+    willRename = true,
+  })
 
   local has_blink, blink = pcall(require, 'blink.cmp')
   if has_blink then capabilities = vim.tbl_deep_extend('force', capabilities, blink.get_lsp_capabilities()) end
@@ -789,12 +822,17 @@ do
     -- Keep errors visible: a misnamed formatter silently fell back to the LSP
     notify_on_error = true,
     format_on_save = function(bufnr)
+      -- :W sets this to write without formatting
+      if vim.b[bufnr].disable_autoformat then return nil end
+
       -- You can specify filetypes to autoformat on save here:
       local enabled_filetypes = {
         lua = true,
         -- java-dev provides the formatter
         java = vim.fn.executable 'google-java-format' == 1,
         nix = true,
+        sh = vim.fn.executable 'shfmt' == 1,
+        bash = vim.fn.executable 'shfmt' == 1,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
         return { timeout_ms = 2000 }
@@ -809,6 +847,8 @@ do
     formatters_by_ft = {
       lua = { 'stylua' },
       nix = { 'nixfmt' },
+      sh = { 'shfmt' },
+      bash = { 'shfmt' },
       -- lsp_format = 'never': jdtls must never format Java
       java = { 'google-java-format', lsp_format = 'never' },
       -- rust = { 'rustfmt' },
@@ -825,6 +865,14 @@ do
       },
     },
   }
+
+  -- Write without running conform's format-on-save
+  vim.api.nvim_create_user_command('W', function(opts)
+    vim.b.disable_autoformat = true
+    local ok, err = pcall(vim.api.nvim_cmd, { cmd = 'write', bang = opts.bang }, {})
+    vim.b.disable_autoformat = false
+    if not ok then vim.notify(err, vim.log.levels.ERROR) end
+  end, { bang = true, desc = 'Write without formatting' })
 
   vim.keymap.set({ 'n', 'v' }, '<leader>f', function() require('conform').format { async = true } end, { desc = '[F]ormat buffer' })
 end
@@ -894,7 +942,7 @@ do
     },
 
     sources = {
-      default = { 'lsp', 'path', 'snippets' },
+      default = { 'lsp', 'path', 'snippets', 'buffer' },
     },
 
     snippets = { preset = 'luasnip' },
@@ -925,7 +973,25 @@ do
   vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
 
   -- Ensure basic parsers are installed
-  local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'python', 'json', 'yaml', 'nix' }
+  local parsers = {
+    'bash',
+    'c',
+    'diff',
+    'html',
+    'java',
+    'lua',
+    'luadoc',
+    'markdown',
+    'markdown_inline',
+    'query',
+    'vim',
+    'vimdoc',
+    'python',
+    'json',
+    'yaml',
+    'nix',
+    'xml',
+  }
   require('nvim-treesitter').install(parsers)
 
   ---@param buf integer

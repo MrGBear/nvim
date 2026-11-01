@@ -6,6 +6,8 @@ local lint = require 'lint'
 lint.linters_by_ft = {
   markdown = { 'markdownlint' },
   nix = { 'statix', 'deadnix' },
+  sh = { 'shellcheck' },
+  bash = { 'shellcheck' },
 }
 
 lint.linters.markdownlint.args = {
