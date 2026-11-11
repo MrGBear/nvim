@@ -1,4 +1,9 @@
-vim.pack.add { 'https://github.com/stevearc/oil.nvim' }
+-- TODO: Could I make oil my default file manager?
+-- - xdg.desktopEntries + mimeType
+-- - Image.nvim for preview
+-- - Drag-and-Drop (ripdrag, dragon-drop)
+-- - Custom File Dispatcher
+-- - Floating Quick-Explorer
 
 -- Toggle detail view (gd)
 local show_details = false

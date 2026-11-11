@@ -1,7 +1,9 @@
 tags
 test.sh
 .luarc.json
-nvim
+/nvim
+.direnv/
+result*
 
 spell/
 

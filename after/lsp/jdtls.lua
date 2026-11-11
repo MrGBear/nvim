@@ -24,6 +24,7 @@ return {
     bundles = bundles,
   },
 
+  -- TODO: Could jdtls start as soon as I open a java project not just when opening a java file?
   settings = {
     -- Only rendered when inlay hints are toggled on (<leader>th).
     java = { inlayHints = { parameterNames = { enabled = 'all' } } },

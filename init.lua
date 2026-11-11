@@ -2,6 +2,10 @@
 -- SECTION 1: OPTIONS
 -- Core Neovim settings, leaders, options
 -- ============================================================
+local profile = assert(vim.g.editor_profile, 'Start Neovim with the Nix wrapper')
+assert(profile == 'full' or profile == 'minimal', 'Unknown editor profile: ' .. profile)
+local full_profile = profile == 'full'
+local config_root = assert(vim.g.editor_config_root, 'The Nix wrapper must set editor_config_root')
 local ignored_directories = { '.direnv' }
 
 local function telescope_ignore_patterns(directories)
@@ -254,103 +258,21 @@ do
 end
 
 -- ============================================================
--- SECTION 3: PLUGIN MANAGER INTRO
--- vim.pack intro, build hooks
+-- SECTION 3: NIX RUNTIME
+-- The wrapper supplies plugins, parsers, tools and the configuration root.
 -- ============================================================
-do
-  -- [[ Intro to `vim.pack` ]]
-  -- `vim.pack` is a new plugin manager built into Neovim,
-  --  which provides a Lua interface for installing and managing plugins.
-  --
-  --  See `:help vim.pack`, `:help vim.pack-examples` or the
-  --  excellent blog post from the creator of vim.pack and mini.nvim:
-  --  https://echasnovski.com/blog/2026-03-13-a-guide-to-vim-pack
-  --
-  --  To inspect plugin state and pending updates, run
-  --    :lua vim.pack.update(nil, { offline = true })
-  --
-  --  To update plugins, run
-  --    :lua vim.pack.update()
-  --
-  --
-  --  Throughout the rest of the config there will be examples
-  --  of how to install and configure plugins using `vim.pack`.
-  --
-  --  In this section we set up some autocommands to run build
-  --  steps for certain plugins after they are installed or updated.
-
-  local function run_build(name, cmd, cwd)
-    local result = vim.system(cmd, { cwd = cwd }):wait()
-    if result.code ~= 0 then
-      local stderr = result.stderr or ''
-      local stdout = result.stdout or ''
-      local output = stderr ~= '' and stderr or stdout
-      if output == '' then output = 'No output from build command.' end
-      vim.notify(('Build failed for %s:\n%s'):format(name, output), vim.log.levels.ERROR)
-    end
-  end
-
-  -- This autocommand runs after a plugin is installed or updated and
-  --  runs the appropriate build command for that plugin if necessary.
-  --
-  -- See `:help vim.pack-events`
-  vim.api.nvim_create_autocmd('PackChanged', {
-    callback = function(ev)
-      local name = ev.data.spec.name
-      local kind = ev.data.kind
-      if kind ~= 'install' and kind ~= 'update' then return end
-
-      if name == 'telescope-fzf-native.nvim' and vim.fn.executable 'make' == 1 then
-        run_build(name, { 'make' }, ev.data.path)
-        return
-      end
-
-      if name == 'LuaSnip' then
-        if vim.fn.has 'win32' ~= 1 and vim.fn.executable 'make' == 1 then run_build(name, { 'make', 'install_jsregexp' }, ev.data.path) end
-        return
-      end
-
-      if name == 'nvim-treesitter' then
-        if not ev.data.active then vim.cmd.packadd 'nvim-treesitter' end
-        vim.cmd 'TSUpdate'
-        return
-      end
-    end,
-  })
-end
-
---- Because most plugins are hosted on GitHub, you can use the helper
---- function to have less repetition in the following sections.
----@param repo string
----@return string
-local function gh(repo) return 'https://github.com/' .. repo end
 
 -- ============================================================
 -- SECTION 4: UI / CORE UX PLUGINS
 -- guess-indent, gitsigns, which-key, colorscheme, todo-comments, mini modules
 -- ============================================================
 do
-  -- [[ Installing and Configuring Plugins ]]
-  --
-  -- To install a plugin simply call `vim.pack.add` with its git url.
-  -- This will download the default branch of the plugin, which will usually be `main` or `master`
-  -- You can also have more advanced specs, which we will talk about later.
-  --
-  -- For most plugins its not enough to install them, you also need to call their `.setup()` to start them.
-  --
-  -- For example, lets say we want to install `guess-indent.nvim` - a plugin for
-  -- automatically detecting and setting the indentation.
-  --
-  -- We first install it from https://github.com/NMAC427/guess-indent.nvim
-  -- and then call its `setup()` function to start it with default settings.
-  vim.pack.add { gh 'NMAC427/guess-indent.nvim' }
   require('guess-indent').setup {}
 
   -- Here is a more advanced configuration example that passes options to `gitsigns.nvim`
   --
   -- See `:help gitsigns` to understand what each configuration key does.
   -- Adds git related signs to the gutter, as well as utilities for managing changes
-  vim.pack.add { gh 'lewis6991/gitsigns.nvim' }
   local gitsigns = require 'gitsigns'
   gitsigns.setup {
     signs = {
@@ -404,32 +326,34 @@ do
   }
 
   -- Useful plugin to show you pending keybinds.
-  vim.pack.add { gh 'folke/which-key.nvim' }
+  local key_groups = {
+    { '<leader>s', group = '[S]earch', mode = { 'n', 'v' } },
+    { '<leader>t', group = '[T]oggle' },
+    { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } },
+    { '<leader>y', group = '[Y]ank' },
+  }
+  if full_profile then
+    vim.list_extend(key_groups, {
+      { '<leader>c', group = '[C]ode' },
+      { '<leader>d', group = '[D]ebug' },
+      { '<leader>j', group = '[J]ava' },
+      { '<leader>x', group = 'Diagnostics' },
+      { 'gr', group = 'LSP Actions', mode = { 'n' } },
+    })
+  end
   require('which-key').setup {
     -- Delay between pressing a key and opening which-key (milliseconds)
     delay = 0,
     icons = { mappings = vim.g.have_nerd_font },
     -- Document existing key chains
-    spec = {
-      { '<leader>s', group = '[S]earch', mode = { 'n', 'v' } },
-      { '<leader>t', group = '[T]oggle' },
-      { '<leader>h', group = 'Git [H]unk', mode = { 'n', 'v' } }, -- Enable gitsigns recommended keymaps first
-      { '<leader>c', group = '[C]ode' },
-      { '<leader>d', group = '[D]ebug' },
-      { '<leader>j', group = '[J]ava' },
-      { '<leader>x', group = 'Diagnostics' },
-      { '<leader>y', group = '[Y]ank' },
-      { 'gr', group = 'LSP Actions', mode = { 'n' } },
-    },
+    spec = key_groups,
   }
 
   -- [[ Colorscheme ]]
   -- You can easily change to a different colorscheme.
-  -- Change the name of the colorscheme plugin below, and then
-  -- change the command under that to load whatever the name of that colorscheme is.
+  -- Package the theme in Nix, then change the colorscheme command below.
   --
   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-  vim.pack.add { gh 'folke/tokyonight.nvim' }
   ---@diagnostic disable-next-line: missing-fields
   require('tokyonight').setup {
     styles = {
@@ -443,12 +367,10 @@ do
   vim.cmd.colorscheme 'tokyonight-night'
 
   -- Highlight todo, notes, etc in comments
-  vim.pack.add { gh 'folke/todo-comments.nvim' }
-  require('todo-comments').setup { signs = false }
+  if full_profile then require('todo-comments').setup { signs = false } end
 
   -- [[ mini.nvim ]]
   --  A collection of various small independent plugins/modules
-  vim.pack.add { gh 'nvim-mini/mini.nvim' }
 
   -- If a nerd font is available, load the icons module for pretty icons in various plugins.
   if vim.g.have_nerd_font then
@@ -528,16 +450,6 @@ do
   -- Telescope picker. This is really useful to discover what Telescope can
   -- do as well as how to actually do it!
 
-  ---@type (string | vim.pack.Spec)[]
-  local telescope_plugins = {
-    gh 'nvim-lua/plenary.nvim',
-    gh 'nvim-telescope/telescope.nvim',
-    gh 'nvim-telescope/telescope-ui-select.nvim',
-  }
-  if vim.fn.executable 'make' == 1 then table.insert(telescope_plugins, gh 'nvim-telescope/telescope-fzf-native.nvim') end
-
-  vim.pack.add(telescope_plugins)
-
   -- See `:help telescope` and `:help telescope.setup()`
   require('telescope').setup {
     -- You can put your default mappings / updates / etc. in here
@@ -550,7 +462,7 @@ do
     -- },
     defaults = {
       file_ignore_patterns = telescope_ignore_patterns(ignored_directories),
-      -- Cut file paths from the beginnning not the end
+      -- Trim long paths from the beginning.
       path_display = { 'truncate' },
     },
     extensions = {
@@ -558,18 +470,19 @@ do
     },
   }
 
-  -- Enable Telescope extensions if they are installed
-  pcall(require('telescope').load_extension, 'fzf')
-  pcall(require('telescope').load_extension, 'ui-select')
+  require('telescope').load_extension 'fzf'
+  require('telescope').load_extension 'ui-select'
 
   -- See `:help telescope.builtin`
   local builtin = require 'telescope.builtin'
   vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
   vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
-  vim.keymap.set('n', '<leader>sf', builtin.find_files, { desc = '[S]earch [F]iles' })
-  vim.keymap.set('n', '<leader>st', '<cmd>TodoTelescope keywords=TODO<cr>', { desc = '[S]earch [T]odo' })
-  vim.keymap.set('n', '<leader>sT', '<cmd>TodoTelescope<cr>', { desc = '[S]earch [T]odo Variants' })
-  vim.keymap.set('n', '<leader>sF', function() builtin.find_files { no_ignore = true, hidden = true } end, { desc = '[S]earch [F]iles (incl. gitignored)' })
+  vim.keymap.set('n', '<leader>sF', builtin.find_files, { desc = '[S]earch [F]iles' })
+  if full_profile then
+    vim.keymap.set('n', '<leader>st', '<cmd>TodoTelescope keywords=TODO<cr>', { desc = '[S]earch [T]odo' })
+    vim.keymap.set('n', '<leader>sT', '<cmd>TodoTelescope<cr>', { desc = '[S]earch [T]odo Variants' })
+  end
+  vim.keymap.set('n', '<leader>sf', function() builtin.find_files { no_ignore = true, hidden = true } end, { desc = '[S]earch [F]iles (incl. gitignored)' })
   vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
   vim.keymap.set({ 'n', 'v' }, '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
   vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
@@ -581,49 +494,51 @@ do
 
   -- Add Telescope-based LSP pickers when an LSP attaches to a buffer.
   -- If you later switch picker plugins, this is where to update these mappings.
-  vim.api.nvim_create_autocmd('LspAttach', {
-    group = vim.api.nvim_create_augroup('telescope-lsp-attach', { clear = true }),
-    callback = function(event)
-      local buf = event.buf
+  if full_profile then
+    vim.api.nvim_create_autocmd('LspAttach', {
+      group = vim.api.nvim_create_augroup('telescope-lsp-attach', { clear = true }),
+      callback = function(event)
+        local buf = event.buf
 
-      -- Find production references. Keep this Java-focused: other languages use
-      -- different test layouts, and Rust can keep tests in the source file.
-      -- LSP has no portable test filter; JDT LS's java.search.scope=main is
-      -- semantic but global, so it cannot provide separate grr/grR behavior.
-      -- See: https://github.com/eclipse-jdtls/eclipse.jdt.ls/pull/3253
-      vim.keymap.set(
-        'n',
-        'grr',
-        function() builtin.lsp_references { file_ignore_patterns = { '/src/test/' } } end,
-        { buffer = buf, desc = '[G]oto [R]eferences (source)' }
-      )
+        -- Find production references. Keep this Java-focused: other languages use
+        -- different test layouts, and Rust can keep tests in the source file.
+        -- LSP has no portable test filter; JDT LS's java.search.scope=main is
+        -- semantic but global, so it cannot provide separate grr/grR behavior.
+        -- See: https://github.com/eclipse-jdtls/eclipse.jdt.ls/pull/3253
+        vim.keymap.set(
+          'n',
+          'grr',
+          function() builtin.lsp_references { file_ignore_patterns = { '/src/test/' } } end,
+          { buffer = buf, desc = '[G]oto [R]eferences (source)' }
+        )
 
-      -- Find all references, including tests
-      vim.keymap.set('n', 'grR', builtin.lsp_references, { buffer = buf, desc = '[G]oto [R]eferences (all)' })
+        -- Find all references, including tests
+        vim.keymap.set('n', 'grR', builtin.lsp_references, { buffer = buf, desc = '[G]oto [R]eferences (all)' })
 
-      -- Jump to the implementation of the word under your cursor.
-      -- Useful when your language has ways of declaring types without an actual implementation.
-      vim.keymap.set('n', 'gri', builtin.lsp_implementations, { buffer = buf, desc = '[G]oto [I]mplementation' })
+        -- Jump to the implementation of the word under your cursor.
+        -- Useful when your language has ways of declaring types without an actual implementation.
+        vim.keymap.set('n', 'gri', builtin.lsp_implementations, { buffer = buf, desc = '[G]oto [I]mplementation' })
 
-      -- Jump to the definition of the word under your cursor.
-      -- This is where a variable was first declared, or where a function is defined, etc.
-      -- To jump back, press <C-t>.
-      vim.keymap.set('n', 'grd', builtin.lsp_definitions, { buffer = buf, desc = '[G]oto [D]efinition' })
+        -- Jump to the definition of the word under your cursor.
+        -- This is where a variable was first declared, or where a function is defined, etc.
+        -- To jump back, press <C-t>.
+        vim.keymap.set('n', 'grd', builtin.lsp_definitions, { buffer = buf, desc = '[G]oto [D]efinition' })
 
-      -- Fuzzy find all the symbols in your current document.
-      -- Symbols are things like variables, functions, types, etc.
-      vim.keymap.set('n', 'gO', builtin.lsp_document_symbols, { buffer = buf, desc = 'Open Document Symbols' })
+        -- Fuzzy find all the symbols in your current document.
+        -- Symbols are things like variables, functions, types, etc.
+        vim.keymap.set('n', 'gO', builtin.lsp_document_symbols, { buffer = buf, desc = 'Open Document Symbols' })
 
-      -- Fuzzy find all the symbols in your current workspace.
-      -- Similar to document symbols, except searches over your entire project.
-      vim.keymap.set('n', 'gW', builtin.lsp_dynamic_workspace_symbols, { buffer = buf, desc = 'Open Workspace Symbols' })
+        -- Fuzzy find all the symbols in your current workspace.
+        -- Similar to document symbols, except searches over your entire project.
+        vim.keymap.set('n', 'gW', builtin.lsp_dynamic_workspace_symbols, { buffer = buf, desc = 'Open Workspace Symbols' })
 
-      -- Jump to the type of the word under your cursor.
-      -- Useful when you're not sure what type a variable is and you want to see
-      -- the definition of its *type*, not where it was *defined*.
-      vim.keymap.set('n', 'grt', builtin.lsp_type_definitions, { buffer = buf, desc = '[G]oto [T]ype Definition' })
-    end,
-  })
+        -- Jump to the type of the word under your cursor.
+        -- Useful when you're not sure what type a variable is and you want to see
+        -- the definition of its *type*, not where it was *defined*.
+        vim.keymap.set('n', 'grt', builtin.lsp_type_definitions, { buffer = buf, desc = '[G]oto [T]ype Definition' })
+      end,
+    })
+  end
 
   -- Override default behavior and theme when searching
   vim.keymap.set('n', '<leader>/', function()
@@ -649,18 +564,14 @@ do
   )
 
   -- Shortcut for searching your Neovim configuration files
-  vim.keymap.set('n', '<leader>sn', function() builtin.find_files { cwd = vim.fn.stdpath 'config', follow = true } end, { desc = '[S]earch [N]eovim files' })
+  vim.keymap.set('n', '<leader>sn', function() builtin.find_files { cwd = config_root, follow = true } end, { desc = '[S]earch [N]eovim files' })
 end
 
 -- ============================================================
 -- SECTION 6: LSP
 -- LSP keymaps, server configuration
 -- ============================================================
-do
-  vim.pack.add { gh 'neovim/nvim-lspconfig' }
-
-  vim.pack.add { gh 'mfussenegger/nvim-jdtls' }
-  vim.pack.add { gh 'j-hui/fidget.nvim' }
+if full_profile then
   require('fidget').setup {}
 
   -- nvim-lspconfig would define these, but its plugin/lspconfig.lua returns early
@@ -709,8 +620,7 @@ do
       if client and client.name == 'jdtls' then
         -- Native vim.lsp.enable bypasses nvim-jdtls' start_or_attach, so register
         -- the java-debug adapter explicitly before the first debug session.
-        local has_dap, dap = pcall(require, 'dap')
-        if has_dap and not dap.adapters.java then require('jdtls').setup_dap { hotcodereplace = 'auto' } end
+        if not require('dap').adapters.java then require('jdtls').setup_dap { hotcodereplace = 'auto' } end
 
         local jdtls = require 'jdtls'
         map('<leader>jo', jdtls.organize_imports, '[J]ava [O]rganize imports')
@@ -745,7 +655,7 @@ do
     nixd = {
       settings = {
         nixd = {
-          nixpkgs = { expr = 'import <nixpkgs> { }' },
+          nixpkgs = { expr = ('import %s { }'):format(assert(vim.g.editor_nixpkgs, 'The Nix wrapper must set editor_nixpkgs')) },
           formatting = { command = { 'nixfmt' } },
         },
       },
@@ -768,8 +678,12 @@ do
       on_init = function(client)
         client.server_capabilities.documentFormattingProvider = false
         if client.workspace_folders then
-          local path = client.workspace_folders[1].name
-          if path ~= vim.fn.stdpath 'config' and (vim.uv.fs_stat(path .. '/.luarc.json') or vim.uv.fs_stat(path .. '/.luarc.jsonc')) then return end
+          local path = vim.fs.normalize(client.workspace_folders[1].name)
+          if path ~= vim.fs.normalize(config_root) and (vim.uv.fs_stat(path .. '/.luarc.json') or vim.uv.fs_stat(path .. '/.luarc.jsonc')) then return end
+        end
+        local library = { vim.env.VIMRUNTIME .. '/lua', config_root .. '/lua' }
+        for _, path in ipairs(vim.api.nvim_get_runtime_file('lua', true)) do
+          if not vim.tbl_contains(library, path) then table.insert(library, path) end
         end
         local current_settings = client.config.settings --[[@as lspconfig.settings.lua_ls]]
         client.config.settings.Lua = vim.tbl_deep_extend('force', current_settings.Lua, {
@@ -780,29 +694,26 @@ do
           workspace = {
             checkThirdParty = false,
             ignoreDir = ignored_directories,
-            -- NOTE: this is a lot slower and will cause issues when working on your own configuration.
-            --  See https://github.com/neovim/nvim-lspconfig/issues/3189
-            library = vim.api.nvim_get_runtime_file('', true),
+            -- Limit indexing to Lua sources, not parser and query runtime roots.
+            -- See https://github.com/neovim/nvim-lspconfig/issues/3189
+            library = library,
           },
         })
       end,
       settings = { Lua = { format = { enable = false } } },
     },
+
+    -- Bundle settings are merged from after/lsp/jdtls.lua; Nix supplies the tools.
+    jdtls = {},
   }
 
-  -- Only enable jdtls when java-dev installs it; extra settings live in after/lsp/jdtls.lua
-  if vim.fn.executable 'jdtls' == 1 then servers.jdtls = {} end
-
-  -- Just enable the servers installed by nix
-  local capabilities = vim.lsp.protocol.make_client_capabilities()
+  -- Blink is on the Nix runtimepath before any server is enabled.
+  local capabilities = require('blink.cmp').get_lsp_capabilities(vim.lsp.protocol.make_client_capabilities())
   -- Allows Oil rename/move to ask the LSP to update imports and references.
   capabilities.workspace.fileOperations = vim.tbl_deep_extend('force', capabilities.workspace.fileOperations or {}, {
     didRename = true,
     willRename = true,
   })
-
-  local has_blink, blink = pcall(require, 'blink.cmp')
-  if has_blink then capabilities = vim.tbl_deep_extend('force', capabilities, blink.get_lsp_capabilities()) end
 
   for name, server_config in pairs(servers) do
     server_config.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server_config.capabilities or {})
@@ -815,9 +726,8 @@ end
 -- SECTION 7: FORMATTING
 -- conform.nvim setup and keymap
 -- ============================================================
-do
+if full_profile then
   -- [[ Formatting ]]
-  vim.pack.add { gh 'stevearc/conform.nvim' }
   require('conform').setup {
     -- Keep errors visible: a misnamed formatter silently fell back to the LSP
     notify_on_error = true,
@@ -828,11 +738,10 @@ do
       -- You can specify filetypes to autoformat on save here:
       local enabled_filetypes = {
         lua = true,
-        -- java-dev provides the formatter
-        java = vim.fn.executable 'google-java-format' == 1,
+        java = true,
         nix = true,
-        sh = vim.fn.executable 'shfmt' == 1,
-        bash = vim.fn.executable 'shfmt' == 1,
+        sh = true,
+        bash = true,
       }
       if enabled_filetypes[vim.bo[bufnr].filetype] then
         return { timeout_ms = 2000 }
@@ -859,6 +768,7 @@ do
       -- javascript = { "prettierd", "prettier", stop_after_first = true },
     },
     formatters = {
+      nixfmt = { args = { '-' } },
       -- Name must match conform's builtin `conform/formatters/google-java-format.lua`
       ['google-java-format'] = {
         prepend_args = { '--skip-javadoc-formatting', '--skip-reflowing-long-strings' },
@@ -881,22 +791,17 @@ end
 -- SECTION 8: AUTOCOMPLETE & SNIPPETS
 -- blink.cmp and luasnip setup
 -- ============================================================
-do
+if full_profile then
   -- [[ Snippet Engine ]]
-
-  --  See `:help vim.version.range()` for more info
-  vim.pack.add { { src = gh 'L3MON4D3/LuaSnip', version = vim.version.range '2.*' } }
-  require('luasnip').setup {}
-
   -- `friendly-snippets` contains a variety of premade snippets.
   --    See the README about individual language/framework/plugin snippets:
   --    https://github.com/rafamadriz/friendly-snippets
   --
   -- vim.pack.add { gh 'rafamadriz/friendly-snippets' }
   -- require('luasnip.loaders.from_vscode').lazy_load()
+  require('luasnip').setup {}
 
   -- [[ Autocomplete Engine ]]
-  vim.pack.add { { src = gh 'saghen/blink.cmp', version = vim.version.range '1.*' } }
   require('blink.cmp').setup {
     keymap = {
       -- 'default' (recommended) for mappings similar to built-in completions
@@ -954,6 +859,7 @@ do
     -- the rust implementation via `'prefer_rust_with_warning'`
     --
     -- See `:help blink-cmp-config-fuzzy` for more information
+    -- Use the Lua matcher without runtime binary downloads.
     fuzzy = { implementation = 'lua' },
 
     -- Shows a signature help window while you type arguments for a function
@@ -963,45 +869,19 @@ end
 
 -- ============================================================
 -- SECTION 9: TREESITTER
--- Parser installation, syntax highlighting, folds, indentation
+-- Packaged parsers, syntax highlighting, folds, indentation
 -- ============================================================
 do
   -- [[ Configure Treesitter ]]
   --  Used to highlight, edit, and navigate code
   --
   --  See `:help nvim-treesitter-intro`
-  vim.pack.add { { src = gh 'nvim-treesitter/nvim-treesitter', version = 'main' } }
-
-  -- Ensure basic parsers are installed
-  local parsers = {
-    'bash',
-    'c',
-    'diff',
-    'html',
-    'java',
-    'lua',
-    'luadoc',
-    'markdown',
-    'markdown_inline',
-    'query',
-    'vim',
-    'vimdoc',
-    'python',
-    'json',
-    'yaml',
-    'nix',
-    'xml',
-  }
-  require('nvim-treesitter').install(parsers)
-
   ---@param buf integer
   ---@param language string
   local function treesitter_try_attach(buf, language)
-    -- Check if the buffer is valid (might not be after install completes)
+    -- Missing packaged languages retain native syntax and indentation.
     if not vim.api.nvim_buf_is_valid(buf) then return end
-
-    -- Check if a parser exists and load it
-    if not vim.treesitter.language.add(language) then return end
+    if #vim.api.nvim_get_runtime_file('parser/' .. language .. '.*', false) == 0 then return end
 
     -- Enable syntax highlighting and other treesitter features
     vim.treesitter.start(buf, language)
@@ -1016,10 +896,9 @@ do
     local has_indent_query = vim.treesitter.query.get(language, 'indents') ~= nil
 
     -- Enable treesitter based indentation
-    if has_indent_query then vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end
+    if has_indent_query then vim.bo[buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()" end
   end
 
-  local available_parsers = require('nvim-treesitter').get_available()
   vim.api.nvim_create_autocmd('FileType', {
     callback = function(args)
       local buf, filetype = args.buf, args.match
@@ -1027,46 +906,20 @@ do
       local language = vim.treesitter.language.get_lang(filetype)
       if not language then return end
 
-      local installed_parsers = require('nvim-treesitter').get_installed 'parsers'
-
-      if vim.tbl_contains(installed_parsers, language) then
-        -- Enable the parser if it is already installed
-        treesitter_try_attach(buf, language)
-      elseif vim.tbl_contains(available_parsers, language) then
-        -- If a parser is available in `nvim-treesitter`, auto-install it and enable it after the installation is done
-        require('nvim-treesitter').install(language):await(function() treesitter_try_attach(buf, language) end)
-      else
-        -- Try to enable treesitter features in case the parser exists but is not available from `nvim-treesitter`
-        treesitter_try_attach(buf, language)
-      end
+      treesitter_try_attach(buf, language)
     end,
   })
 end
 
 -- ============================================================
--- SECTION 10: OPTIONAL EXAMPLES / NEXT STEPS
--- kickstart.plugins.* examples
+-- SECTION 10: ADDITIONAL MODULES
+-- Explicit core/full module lists live in custom.plugins.
 -- ============================================================
 do
-  -- TODO: Improve startup time (~340 ms empty startup):
-  -- - Lazy-load DAP/DAP UI on the first debug action.
-  -- - Load custom plugins by filetype or command instead of eagerly.
-  -- - Preinstall Treesitter parsers
-  require 'kickstart.plugins.debug'
-  require 'kickstart.plugins.lint'
+  -- These examples stay disabled unless also packaged in Nix.
   -- require 'kickstart.plugins.autopairs'
   -- require 'kickstart.plugins.neo-tree'
 
-  -- NOTE: You can add your own plugins, configuration, etc. in `lua/custom/plugins/*.lua`.
-  --
-  -- `custom.plugins` automatically loads files from that directory, but their
-  -- order is unspecified. If plugins depend on each other, keep them in the same
-  -- file and put their `vim.pack.add()` and `setup()` calls in the required order.
-  --
-  -- If separate modules need a specific order, require them explicitly instead:
-  -- require 'custom.plugins.colorscheme'
-  -- require 'custom.plugins.ui'
-  -- require 'custom.plugins.git'
   require 'custom.plugins'
 end
 

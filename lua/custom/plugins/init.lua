@@ -1,14 +1,23 @@
--- You can add your own plugins here or in other files in this directory!
---  I promise not to create any merge conflicts in this directory :)
---
--- See the kickstart.nvim README for more information
+-- Keep module order and profile membership explicit; dependencies come from Nix.
+local core = {
+  'custom.plugins.oil',
+  'custom.plugins.undotree',
+  'custom.plugins.grug-far',
+  'custom.plugins.treesitter-context',
+  'custom.plugins.textobjects',
+}
+local full = {
+  'kickstart.plugins.debug',
+  'kickstart.plugins.lint',
+  'custom.plugins.trouble',
+  'custom.plugins.render-markdown',
+}
 
--- Iterate over all Lua files in the plugins directory and load them.
--- `vim.fs.dir()` iteration order is unspecified and must not be relied upon.
-local plugins_dir = vim.fs.joinpath(vim.fn.stdpath 'config', 'lua', 'custom', 'plugins')
-for file_name, type in vim.fs.dir(plugins_dir, { follow = true }) do
-  if (type == 'file' or type == 'link') and file_name:match '%.lua$' and file_name ~= 'init.lua' then
-    local module = file_name:gsub('%.lua$', '')
-    require('custom.plugins.' .. module)
+for _, module in ipairs(core) do
+  require(module)
+end
+if vim.g.editor_profile == 'full' then
+  for _, module in ipairs(full) do
+    require(module)
   end
 end

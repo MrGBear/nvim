@@ -1,9 +1,3 @@
-vim.pack.add {
-  'https://github.com/mfussenegger/nvim-dap',
-  'https://github.com/rcarriga/nvim-dap-ui',
-  'https://github.com/nvim-neotest/nvim-nio', -- required by nvim-dap-ui
-}
-
 local dap = require 'dap'
 local dapui = require 'dapui'
 -- TODO: Persistent Breakpoints? https://github.com/Weissle/persistent-breakpoints.nvim
