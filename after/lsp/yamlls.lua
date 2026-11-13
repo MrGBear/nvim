@@ -7,6 +7,7 @@ return {
   ---@type lspconfig.settings.yamlls
   settings = {
     yaml = {
+      customTags = { '!reference sequence' },
       schemas = {
         -- Authoritative source; SchemaStore's copy tends to lag GitLab releases.
         ['https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts/editor/schema/ci.json'] = {
