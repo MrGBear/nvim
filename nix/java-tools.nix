@@ -42,9 +42,7 @@ let
 in
 {
   packages = [
-    (pkgs.jdt-language-server.override {
-      jdk25 = pkgs.jdk21;
-    })
+    pkgs.jdt-language-server
     google-java-format
   ];
   sessionVariables = {
