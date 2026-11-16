@@ -477,12 +477,12 @@ do
   local builtin = require 'telescope.builtin'
   vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
   vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
-  vim.keymap.set('n', '<leader>sF', builtin.find_files, { desc = '[S]earch [F]iles' })
+  vim.keymap.set('n', '<leader>sf', function() builtin.find_files { hidden = true } end, { desc = '[S]earch [F]iles' })
   if full_profile then
     vim.keymap.set('n', '<leader>st', '<cmd>TodoTelescope keywords=TODO<cr>', { desc = '[S]earch [T]odo' })
     vim.keymap.set('n', '<leader>sT', '<cmd>TodoTelescope<cr>', { desc = '[S]earch [T]odo Variants' })
   end
-  vim.keymap.set('n', '<leader>sf', function() builtin.find_files { no_ignore = true, hidden = true } end, { desc = '[S]earch [F]iles (incl. gitignored)' })
+  vim.keymap.set('n', '<leader>sF', function() builtin.find_files { no_ignore = true, hidden = true } end, { desc = '[S]earch [F]iles (incl. gitignored)' })
   vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
   vim.keymap.set({ 'n', 'v' }, '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
   vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
@@ -771,7 +771,12 @@ if full_profile then
       nixfmt = { args = { '-' } },
       -- Name must match conform's builtin `conform/formatters/google-java-format.lua`
       ['google-java-format'] = {
-        prepend_args = { '--skip-javadoc-formatting', '--skip-reflowing-long-strings' },
+        prepend_args = {
+          '--max-line-length=120',
+          '--cleanup=false',
+          '--skip-javadoc-formatting',
+          '--skip-reflowing-long-strings',
+        },
       },
     },
   }

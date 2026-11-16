@@ -8,3 +8,4 @@ result*
 spell/
 
 .DS_Store
+/.pre-commit-config.yaml

@@ -1,10 +1,21 @@
 {
   description = "Nix-managed Neovim with full and minimal profiles";
 
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    git-hooks = {
+      url = "github:cachix/git-hooks.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
 
   outputs =
-    { nixpkgs, ... }:
+    {
+      self,
+      nixpkgs,
+      git-hooks,
+      ...
+    }:
     let
       systems = [
         "x86_64-linux"
@@ -44,20 +55,33 @@
       lib = { inherit mkNeovim; };
       homeManagerModules.default = ./nix/home-manager.nix;
       packages = forAllSystems (system: packagesFor nixpkgs.legacyPackages.${system});
-      checks = forAllSystems (
-        system:
-        let
-          pkgs = nixpkgs.legacyPackages.${system};
-        in
-        import ./nix/checks.nix { inherit pkgs mkNeovim; }
-      );
+      checks = forAllSystems (system: {
+        pre-commit-check = git-hooks.lib.${system}.run {
+          src = ./.;
+          hooks = {
+            nixfmt.enable = true;
+            statix.enable = true;
+            deadnix.enable = true;
+            typos = {
+              enable = true;
+              # Bracketed keybinding mnemonics split otherwise valid words.
+              settings.config.type.lua.extend-ignore-re = [ "\\[[A-Za-z]\\][A-Za-z]+" ];
+            };
+          };
+        };
+      });
       formatter = forAllSystems (system: nixpkgs.legacyPackages.${system}.nixfmt-tree);
       devShells = forAllSystems (
         system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
+          hookCheck = self.checks.${system}.pre-commit-check;
         in
         {
+          git-hooks = pkgs.mkShell {
+            inherit (hookCheck) shellHook;
+            packages = hookCheck.enabledPackages;
+          };
           default = pkgs.mkShell {
             packages = [
               (packagesFor pkgs).nvim-dev
